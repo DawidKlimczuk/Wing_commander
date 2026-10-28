@@ -1,17 +1,8 @@
 <div align="center">
 
-```
- ██████╗ ███████╗███╗   ███╗██╗███╗   ██╗██╗
-██╔════╝ ██╔════╝████╗ ████║██║████╗  ██║██║
-██║  ███╗█████╗  ██╔████╔██║██║██╔██╗ ██║██║
-██║   ██║██╔══╝  ██║╚██╔╝██║██║██║╚██╗██║██║
-╚██████╔╝███████╗██║ ╚═╝ ██║██║██║ ╚████║██║
- ╚═════╝ ╚══════╝╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝╚═╝
-      S  H  I  P  Y  A  R  D    ·  2 6 6 9
-```
+<img src="docs/banner.png" alt="GEMINI SHIPYARD - A Privateer tribute by Dawid Klimczuk" width="100%">
 
-**Sklep ze statkami kosmicznymi z *Wing Commander: Privateer***<br>
-*A Privateer tribute by **Dawid Klimczuk***
+**Sklep ze statkami kosmicznymi z *Wing Commander: Privateer***
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-46ff6e?style=flat-square&labelColor=020a04)
 ![Flask](https://img.shields.io/badge/Flask-3.x-46ff6e?style=flat-square&labelColor=020a04)
