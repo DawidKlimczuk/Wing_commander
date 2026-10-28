@@ -4,6 +4,10 @@
 
 **Sklep ze statkami kosmicznymi z *Wing Commander: Privateer***
 
+### [▶ ZAGRAJ ONLINE: wing-commander.onrender.com](https://wing-commander.onrender.com/)
+
+<sub>Darmowy hosting usypia aplikację po bezczynności, więc pierwsze wejście może potrwać ok. 50 s.</sub>
+
 ![Python](https://img.shields.io/badge/Python-3.10%2B-46ff6e?style=flat-square&labelColor=020a04)
 ![Flask](https://img.shields.io/badge/Flask-3.x-46ff6e?style=flat-square&labelColor=020a04)
 ![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.x-ffb43c?style=flat-square&labelColor=020a04)
