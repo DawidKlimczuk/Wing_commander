@@ -114,7 +114,7 @@ export class Intro {
       this.r.buf.set(new Uint32Array(img.data.buffer));
       this.r.drawMesh(shipMesh({ name: "Centurion" }), {
         cx: -60 + k * 440, cy: 150 - k * 30, scale: 3.2,
-        yaw: -1.2 + k * 0.5, pitch: 0.35, roll: -0.25, flame: 1 + Math.sin(this.t * 0.6) * 0.2,
+        yaw: 1.2 - k * 0.5, pitch: 0.35, roll: 0.25, flame: 1 + Math.sin(this.t * 0.6) * 0.2,
       });
       this.r.blit(this.ctx);
       this.raf = requestAnimationFrame(loop);
@@ -182,7 +182,7 @@ export function runLaunch(canvas, commEl, backdrop, hull) {
         r.buf.set(new Uint32Array(c.data.buffer));
         r.drawMesh(mesh, {
           cx: 160 + Math.sin(t / 500) * 8, cy: 118 + Math.cos(t / 700) * 4, scale: 8 - warp * 5,
-          yaw: Math.PI + Math.sin(t / 900) * 0.25, pitch: 0.25, roll: Math.sin(t / 600) * 0.3,
+          yaw: Math.sin(t / 900) * 0.25, pitch: 0.25, roll: Math.sin(t / 600) * 0.3,
           flame: 1.5 + warp * 2 + Math.random() * 0.3,
         });
         r.blit(ctx);
