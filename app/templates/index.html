@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gemini Shipyard</title>
+  <meta name="author" content="Dawid Klimczuk">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Crect width='16' height='16' fill='%23020a04'/%3E%3Cpath d='M7 2h2v5H7zM7 9h2v5H7zM2 7h5v2H2zM9 7h5v2H9z' fill='%2346ff6e'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=VT323&family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/privateer.css') }}">
+</head>
+<body>
+<div id="stage">
+  <div id="screen">
+
+    <!-- ============ BOOT (DOS) ============ -->
+    <section id="boot" class="scene active">
+      <pre id="boot-log"></pre>
+    </section>
+
+    <!-- ============ INTRO ============ -->
+    <section id="intro" class="scene">
+      <canvas id="intro-canvas" width="320" height="200" class="pix fill"></canvas>
+      <div class="intro-text">
+        <div class="intro-pre" id="intro-pre">Sektor Gemini &middot; rok 2669</div>
+        <h1 class="chrome" data-text="GEMINI">GEMINI</h1>
+        <h2 class="chrome small" data-text="SHIPYARD">SHIPYARD</h2>
+        <div class="intro-sub">A Privateer tribute by <span class="author">Dawid Klimczuk</span><br><small>Programowanie Wysokopoziomowe</small></div>
+        <div class="press-key"><span class="blink">KLIKNIJ ALBO NACIŚNIJ DOWOLNY KLAWISZ</span></div>
+      </div>
+    </section>
+
+    <!-- ============ CONCOURSE ============ -->
+    <section id="concourse" class="scene">
+      <canvas id="concourse-canvas" width="320" height="200" class="pix fill"></canvas>
+      <div class="hud-top">
+        <span class="base-name">NEW DETROIT</span>
+        <span class="hud-sep">&#9670;</span>
+        <span id="stardate">2669.104</span>
+        <span class="hud-right">PILOT: <b id="hud-pilot">&mdash;</b> &nbsp; KREDYTY: <b id="hud-credits">0</b></span>
+      </div>
+      <div class="hotspot-label" id="hotspot-label"></div>
+    </section>
+
+    <!-- ============ SHIP DEALER ============ -->
+    <section id="dealer" class="scene room">
+      <header class="plate">
+        <span class="plate-title">SHIP DEALER</span>
+        <span class="plate-sub">Salon statków &middot; konfiguracja i zakup</span>
+        <div class="plate-right customer-box">
+          <label>KLIENT</label>
+          <select id="dealer-client" class="crt-select"></select>
+          <span class="credits-pill"><span id="dealer-credits">0</span> kr</span>
+        </div>
+      </header>
+      <div class="dealer-grid">
+        <div class="bezel">
+          <div class="crt">
+            <div class="crt-head">KADŁUBY W OFERCIE</div>
+            <ul id="hull-list" class="crt-list"></ul>
+          </div>
+        </div>
+        <div class="bezel viewport-bezel">
+          <div class="crt viewport">
+            <canvas id="ship-view" width="256" height="150" class="pix"></canvas>
+            <div class="vp-overlay tl" id="vp-name">&mdash;</div>
+            <div class="vp-overlay tr" id="vp-class"></div>
+            <div class="vp-overlay bl">ROT <span id="vp-rot">000</span>&deg;</div>
+            <div class="vp-overlay br" id="vp-price"></div>
+          </div>
+          <div class="crt stats" id="hull-stats"></div>
+        </div>
+        <div class="bezel">
+          <div class="crt loadout">
+            <div class="crt-head">KONFIGURACJA</div>
+            <label class="field">Znak wywoławczy
+              <input id="callsign" class="crt-input" maxlength="64" placeholder="np. Szara Eminencja">
+            </label>
+            <div id="slots"></div>
+            <div class="crt-head mt">ZAMÓWIENIE <span id="cart-count"></span></div>
+            <ul id="cart" class="cart"></ul>
+            <table class="sum">
+              <tr><td>Bieżący statek</td><td id="sum-current">0</td></tr>
+              <tr><td>W zamówieniu</td><td id="sum-cart">0</td></tr>
+              <tr class="total"><td>RAZEM</td><td id="sum-total">0</td></tr>
+              <tr><td>Saldo po zakupie</td><td id="sum-after">0</td></tr>
+            </table>
+            <div class="btn-row">
+              <button class="btn" id="btn-add">+ DO ZAMÓWIENIA</button>
+              <button class="btn btn-buy" id="btn-buy">KUP</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <button class="btn exit" data-exit>&#9664; CONCOURSE</button>
+    </section>
+
+    <!-- ============ BAR ============ -->
+    <section id="bar" class="scene room">
+      <header class="plate">
+        <span class="plate-title">THE BAR</span>
+        <span class="plate-sub">Rejestr klientów &middot; kto dziś pije na kredyt</span>
+      </header>
+      <div class="bar-rumor" id="bar-rumor"></div>
+      <div class="bar-grid">
+        <div class="bezel">
+          <div class="crt">
+            <div class="crt-head">GOŚCIE BARU</div>
+            <div id="patrons" class="patrons"></div>
+          </div>
+        </div>
+        <div class="bezel">
+          <div class="crt dossier" id="dossier"></div>
+        </div>
+        <div class="bezel">
+          <form class="crt" id="client-form" novalidate>
+            <div class="crt-head">NOWY PILOT</div>
+            <label class="field">Imię / ksywa <input name="name" class="crt-input" maxlength="64" required></label>
+            <label class="field">Pochodzenie
+              <select name="origin" class="crt-select">
+                {% for o in origins %}<option>{{ o }}</option>{% endfor %}
+              </select>
+            </label>
+            <label class="field">Profesja
+              <select name="profession" class="crt-select">
+                <option value="trader">Handlarz</option>
+                <option value="pirate">Pirat</option>
+                <option value="mercenary">Najemnik</option>
+                <option value="bounty_hunter">Łowca nagród</option>
+                <option value="smuggler">Przemytnik</option>
+              </select>
+            </label>
+            <label class="field">Kredyty <input name="credits" class="crt-input" type="number" min="0" value="25000"></label>
+            <div class="portrait-preview"><canvas id="new-portrait" width="32" height="40" class="pix"></canvas></div>
+            <button class="btn" type="submit">ZAREJESTRUJ</button>
+          </form>
+        </div>
+      </div>
+      <button class="btn exit" data-exit>&#9664; CONCOURSE</button>
+    </section>
+
+    <!-- ============ COMMODITY EXCHANGE (MAGAZYN) ============ -->
+    <section id="exchange" class="scene room">
+      <header class="plate">
+        <span class="plate-title">COMMODITY EXCHANGE</span>
+        <span class="plate-sub">Oferta magazynowa &middot; dostawy &middot; złom</span>
+      </header>
+      <div class="exchange-grid">
+        <div class="bezel">
+          <div class="crt">
+            <div class="tabs" id="ex-tabs">
+              <button class="tab active" data-tab="hulls">KADŁUBY</button>
+              <button class="tab" data-tab="energy">DZIAŁA</button>
+              <button class="tab" data-tab="missile">RAKIETY</button>
+            </div>
+            <table class="ex-table">
+              <thead><tr><th>TOWAR</th><th>CENA</th><th>STAN</th><th>WARTOŚĆ</th><th></th></tr></thead>
+              <tbody id="ex-rows"></tbody>
+            </table>
+            <div class="ex-summary" id="ex-summary"></div>
+          </div>
+        </div>
+        <div class="bezel">
+          <form class="crt" id="delivery-form" novalidate>
+            <div class="crt-head" id="delivery-title">NOWA DOSTAWA</div>
+            <div id="delivery-fields"></div>
+            <div class="btn-row">
+              <button class="btn" type="submit">PRZYJMIJ DOSTAWĘ</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      <button class="btn exit" data-exit>&#9664; CONCOURSE</button>
+    </section>
+
+    <!-- ============ MISSION COMPUTER ============ -->
+    <section id="computer" class="scene room">
+      <header class="plate">
+        <span class="plate-title">MISSION COMPUTER</span>
+        <span class="plate-sub">Statystyki &middot; rejestr transakcji &middot; terminal API</span>
+      </header>
+      <div class="computer-frame">
+        <nav class="comp-buttons">
+          <button class="comp-btn active" data-view="stats">STATS</button>
+          <button class="comp-btn" data-view="log">LOG</button>
+          <button class="comp-btn" data-view="term">API</button>
+        </nav>
+        <div class="crt comp-screen">
+          <div class="comp-view active" id="view-stats"></div>
+          <div class="comp-view" id="view-log">
+            <div class="log-split">
+              <ul id="tx-list" class="crt-list"></ul>
+              <pre id="tx-detail" class="manifest"></pre>
+            </div>
+          </div>
+          <div class="comp-view" id="view-term">
+            <div id="term-out" class="term-out"></div>
+            <div class="term-line"><span class="prompt">GEMINI&gt;</span><input id="term-in" autocomplete="off" spellcheck="false"></div>
+          </div>
+        </div>
+      </div>
+      <button class="btn exit" data-exit>&#9664; CONCOURSE</button>
+    </section>
+
+    <!-- ============ LAUNCH ============ -->
+    <section id="launch" class="scene">
+      <canvas id="launch-canvas" width="320" height="200" class="pix fill"></canvas>
+      <div class="comm" id="launch-comm"></div>
+    </section>
+
+    <!-- ============ DIALOG / OVERLAYS ============ -->
+    <div id="dialog" class="dialog hidden">
+      <div class="dialog-box">
+        <div class="dialog-title" id="dialog-title"></div>
+        <div class="dialog-body" id="dialog-body"></div>
+        <button class="btn" id="dialog-ok">OK</button>
+      </div>
+    </div>
+    <div id="fader"></div>
+    <div id="crt-overlay"></div>
+  </div>
+  <div id="hint">ESC &mdash; powrót &nbsp;&middot;&nbsp; M &mdash; dźwięk &nbsp;&middot;&nbsp; C &mdash; efekt CRT</div>
+</div>
+<script type="module" src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
