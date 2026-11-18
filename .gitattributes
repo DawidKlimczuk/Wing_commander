@@ -1,0 +1,3 @@
+# pliki frontendu nie są liczone do statystyki języków na GitHubie
+app/static/** linguist-vendored
+app/templates/** linguist-vendored
