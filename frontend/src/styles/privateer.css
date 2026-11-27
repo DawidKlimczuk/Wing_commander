@@ -429,3 +429,49 @@ button, select, input, label, a { cursor: var(--cursor); font-family: inherit; }
   background: linear-gradient(to bottom, rgba(2,10,4,0), var(--crt-bg) 30%);
 }
 .loadout .btn { font-size: 24px; padding: 8px 8px; }
+
+/* =======================
+   dodatki do wersji z Reactem (laboratorium 2)
+   ======================= */
+
+/* ---------- lampki połączenia na placu (API i https) ---------- */
+.link { display: inline-flex; align-items: center; gap: 6px; font-size: 22px; letter-spacing: 1px; }
+.link .led { width: 10px; height: 10px; display: inline-block; background: currentColor; box-shadow: 0 0 8px currentColor; }
+.link.up { color: var(--green); }
+.link.warn { color: var(--amber); }
+.link.down { color: var(--red); animation: blink 1s steps(1) infinite; }
+
+/* ---------- małe przyciski w tabeli magazynu ---------- */
+.ex-table .actions { white-space: nowrap; }
+.ex-table .actions button { margin-left: 4px; }
+.ex-table .mini {
+  color: var(--cyan); border: 2px solid #12505a; background: #000;
+  font-family: "VT323"; font-size: 20px; padding: 0 6px;
+}
+.ex-table .mini:hover { background: var(--cyan); color: #000; }
+.ex-table tr.sel td { background: #10281c; color: #fff; }
+.ex-table td:first-child { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- formularz w trybie edycji świeci na bursztynowo ---------- */
+.crt.editing { box-shadow: inset 0 0 0 2px #5b3d0c, inset 0 0 30px #000, 0 0 16px rgba(255,180,60,.35); }
+.crt.editing .crt-head { color: #fff; }
+.field .req { color: var(--amber); margin-left: 2px; }
+form.crt .btn-row { position: sticky; bottom: -12px; margin: 8px -14px -12px; padding: 8px 14px 10px;
+  background: linear-gradient(to bottom, rgba(2,10,4,0), var(--crt-bg) 30%); }
+
+/* ---------- terminal ---------- */
+.t-warn { color: var(--amber); }
+.dossier .btn-row .btn { font-size: 24px; padding: 8px 6px; }
+
+/* ---------- ekran awarii (gdy w Reakcie coś wybuchnie) ---------- */
+.crash { background: #0000aa; display: grid; place-items: center; }
+.crash-box { width: 900px; color: #fff; font-size: 30px; line-height: 1.2; }
+.crash-title { background: #aaaaaa; color: #0000aa; text-align: center; padding: 4px; margin-bottom: 20px; letter-spacing: 2px; }
+.crash pre { background: #000088; padding: 12px; font-family: "VT323"; font-size: 26px; white-space: pre-wrap; color: #ffff55; }
+
+/* ---------- poprawki układu: akta pilota się nie ucinają, przyciski w jednej linii ---------- */
+.dossier canvas { width: 144px; height: 180px; }
+.dossier dl { grid-template-columns: auto 1fr; column-gap: 12px; font-size: 23px; }
+.dossier dd { white-space: nowrap; }
+.loadout .btn { white-space: nowrap; font-size: 22px; }
+form.crt .btn { white-space: nowrap; font-size: 22px; }

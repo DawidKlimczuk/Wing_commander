@@ -1,5 +1,5 @@
 # =======================
-# w tym pliku znajdują się funkcje odpowiedzialne za dodawanie, pobieranie i usuwanie kadłubów, broni i klientów
+# w tym pliku znajdują się funkcje odpowiedzialne za dodawanie, pobieranie, edycję i usuwanie kadłubów, broni i klientów
 # =======================
 from __future__ import annotations
 
@@ -64,11 +64,41 @@ def get_or_404(model, obj_id: int, label: str):
 
 
 # ==============
-# funkcja sprawdza czy nazwa nie jest już zajęta
+# funkcja sprawdza czy nazwa nie jest już zajęta (przy edycji pomijam edytowany obiekt)
 # ==============
-def ensure_unique_name(model, name: str, label: str) -> None:
-    if db.session.scalar(select(model).where(model.name == name)) is not None:
+def ensure_unique_name(model, name: str, label: str, skip_id: int | None = None) -> None:
+    query = select(model).where(model.name == name)
+    if skip_id is not None:
+        query = query.where(model.id != skip_id)
+    if db.session.scalar(query) is not None:
         raise Conflict(f"{label} o nazwie '{name}' już istnieje.", details={"name": name})
+
+
+# ==============
+# funkcja zwraca dane z żądania - dla PUT wszystkie pola, dla PATCH tylko te co przyszły
+# ==============
+def update_data(schema: dict) -> dict:
+    return validate(get_json(), schema, partial=request.method == "PATCH")
+
+
+# ==============
+# funkcja przepisuje nowe wartości do obiektu i zapisuje go w bazie
+# ==============
+def save_changes(obj, data: dict):
+    for key, value in data.items():
+        setattr(obj, key, value)
+    db.session.commit()
+    return jsonify(obj.to_dict())
+
+
+# ==============
+# funkcja sprawdza czy dopalacz nie jest wolniejszy od zwykłej prędkości
+# ==============
+def check_velocity(max_velocity: int, afterburner_velocity: int) -> None:
+    if afterburner_velocity < max_velocity:
+        raise APIError("Prędkość z dopalaczem nie może być mniejsza od prędkości maksymalnej.",
+                       status=422, code="VALIDATION_ERROR",
+                       details={"fields": {"afterburner_velocity": "Musi być >= max_velocity."}})
 
 
 # ==============
@@ -110,15 +140,24 @@ def get_hull(obj_id: int):
 @bp.post("/hulls")
 def create_hull():
     data = validate(get_json(), HULL_SCHEMA)
-    if data["afterburner_velocity"] < data["max_velocity"]:
-        raise APIError("Prędkość z dopalaczem nie może być mniejsza od prędkości maksymalnej.",
-                       status=422, code="VALIDATION_ERROR",
-                       details={"fields": {"afterburner_velocity": "Musi być >= max_velocity."}})
+    check_velocity(data["max_velocity"], data["afterburner_velocity"])
     ensure_unique_name(Hull, data["name"], "Kadłub")
     hull = Hull(**data)
     db.session.add(hull)
     db.session.commit()
     return created(hull, "api.get_hull")
+
+
+# PUT podmienia cały kadłub, PATCH tylko wybrane pola (np. sam stan magazynowy)
+@bp.route("/hulls/<int:obj_id>", methods=["PUT", "PATCH"])
+def update_hull(obj_id: int):
+    hull = get_or_404(Hull, obj_id, "Kadłub")
+    data = update_data(HULL_SCHEMA)
+    check_velocity(data.get("max_velocity", hull.max_velocity),
+                   data.get("afterburner_velocity", hull.afterburner_velocity))
+    if "name" in data:
+        ensure_unique_name(Hull, data["name"], "Kadłub", skip_id=hull.id)
+    return save_changes(hull, data)
 
 
 @bp.delete("/hulls/<int:obj_id>")
@@ -167,6 +206,29 @@ def create_weapon():
     return created(weapon, "api.get_weapon")
 
 
+@bp.route("/weapons/<int:obj_id>", methods=["PUT", "PATCH"])
+def update_weapon(obj_id: int):
+    weapon = get_or_404(Weapon, obj_id, "Broń")
+    data = update_data(WEAPON_SCHEMA)
+    kind = WeaponKind(data.get("kind", weapon.kind.value))
+    # nie zmieniam rodzaju broni która już siedzi na sprzedanych statkach
+    if kind is not weapon.kind:
+        used = db.session.scalar(select(db.func.count()).where(MountedWeapon.weapon_id == weapon.id))
+        if used:
+            raise Conflict(f"Nie można zmienić rodzaju broni '{weapon.name}' - zamontowano ją na {used} statkach.",
+                           details={"id": weapon.id, "mounted": used})
+    ammo = data["ammo"] if "ammo" in data else weapon.ammo
+    if kind is WeaponKind.MISSILE and not ammo:
+        raise APIError("Rakiety muszą mieć określoną amunicję (ammo).", status=422,
+                       code="VALIDATION_ERROR", details={"fields": {"ammo": "Wymagane dla rakiet."}})
+    if kind is WeaponKind.ENERGY:
+        data["ammo"] = None
+    if "name" in data:
+        ensure_unique_name(Weapon, data["name"], "Broń", skip_id=weapon.id)
+    data["kind"] = kind
+    return save_changes(weapon, data)
+
+
 @bp.delete("/weapons/<int:obj_id>")
 def delete_weapon(obj_id: int):
     weapon = get_or_404(Weapon, obj_id, "Broń")
@@ -206,6 +268,15 @@ def create_client():
     db.session.add(client)
     db.session.commit()
     return created(client, "api.get_client")
+
+
+@bp.route("/clients/<int:obj_id>", methods=["PUT", "PATCH"])
+def update_client(obj_id: int):
+    client = get_or_404(Client, obj_id, "Klient")
+    data = update_data(CLIENT_SCHEMA)
+    if "profession" in data:
+        data["profession"] = Profession(data["profession"])
+    return save_changes(client, data)
 
 
 @bp.delete("/clients/<int:obj_id>")

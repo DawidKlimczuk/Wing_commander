@@ -311,12 +311,24 @@ export class Concourse {
       const [hx, hy, hw, hh] = h.rect;
       return x >= hx && x < hx + hw && y >= hy && y < hy + hh;
     }) || null;
-    this.canvas.addEventListener("mousemove", e => {
-      const h = hit(pos(e));
-      if (h !== this.hover) { this.hover = h; this.onHover(h); }
-    });
-    this.canvas.addEventListener("mouseleave", () => { this.hover = null; this.onHover(null); });
-    this.canvas.addEventListener("click", e => { const h = hit(pos(e)); if (h) this.onSelect(h); });
+    // zapisuję funkcje żeby potem móc je odpiąć w destroy()
+    this.handlers = {
+      mousemove: e => {
+        const h = hit(pos(e));
+        if (h !== this.hover) { this.hover = h; this.onHover(h); }
+      },
+      mouseleave: () => { this.hover = null; this.onHover(null); },
+      click: e => { const h = hit(pos(e)); if (h) this.onSelect(h); },
+    };
+    for (const [ev, fn] of Object.entries(this.handlers)) this.canvas.addEventListener(ev, fn);
+  }
+
+  // ==============
+  // funkcja zatrzymuje animację i odpina myszkę (React woła ją przy wyjściu ze sceny)
+  // ==============
+  destroy() {
+    this.stop();
+    for (const [ev, fn] of Object.entries(this.handlers)) this.canvas.removeEventListener(ev, fn);
   }
 
   start() {

@@ -56,8 +56,9 @@ def _type_name(t) -> str:
 
 # ==============
 # funkcja odpowiedzialna za sprawdzenie danych według schematu
+# partial=True jest dla PATCH - wtedy sprawdzam tylko pola które przyszły
 # ==============
-def validate(data: dict, schema: dict[str, Field]) -> dict:
+def validate(data: dict, schema: dict[str, Field], partial: bool = False) -> dict:
     errors: dict[str, str] = {}
     out: dict[str, Any] = {}
 
@@ -68,6 +69,8 @@ def validate(data: dict, schema: dict[str, Field]) -> dict:
     for name, f in schema.items():
         value = data.get(name, _MISSING)
         if value is _MISSING:
+            if partial:
+                continue
             if f.required:
                 errors[name] = "Pole wymagane."
             elif f.default is not None or f.nullable:
@@ -104,6 +107,8 @@ def validate(data: dict, schema: dict[str, Field]) -> dict:
             continue
         out[name] = value
 
+    if partial and not data:
+        errors["_"] = "Nie podano żadnego pola do zmiany."
     if errors:
         raise ValidationError("Niepoprawne dane wejściowe.", details={"fields": errors})
     return out

@@ -11,7 +11,9 @@
 ![Python](https://img.shields.io/badge/Python-3.10%2B-46ff6e?style=flat-square&labelColor=020a04)
 ![Flask](https://img.shields.io/badge/Flask-3.x-46ff6e?style=flat-square&labelColor=020a04)
 ![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.x-ffb43c?style=flat-square&labelColor=020a04)
-![Tests](https://img.shields.io/badge/pytest-27%20passed-46ff6e?style=flat-square&labelColor=020a04)
+![React](https://img.shields.io/badge/React-19-5ff0ff?style=flat-square&labelColor=020a04)
+![Vite](https://img.shields.io/badge/Vite-8-ff4fd8?style=flat-square&labelColor=020a04)
+![Tests](https://img.shields.io/badge/pytest-42%20passed-46ff6e?style=flat-square&labelColor=020a04)
 ![VGA](https://img.shields.io/badge/grafika-320×200%20VGA-ff4fd8?style=flat-square&labelColor=020a04)
 
 <img src="docs/screenshots/03_concourse.png" alt="Concourse bazy New Detroit" width="100%">
@@ -32,10 +34,12 @@ C:\GEMINI>TYPE README.TXT
 
 ## `C:\GEMINI> TYPE OPIS.TXT`
 
-Programowanie Wysokopoziomowe, **Laboratorium 1**: aplikacja WWW do obsługi sklepu ze statkami kosmicznymi.
+Programowanie Wysokopoziomowe, **Laboratorium 2**: aplikacja WWW do obsługi sklepu ze statkami kosmicznymi, przerobiona na architekturę REST + osobny klient.
 
-Backend to **Flask** z **SQLAlchemy** (SQLite), REST API w JSON, transakcyjna operacja zakupu i spójna obsługa błędów.
-Frontend to hołd dla interfejsu Privateera z 1993 roku. Gracz ląduje w bazie New Detroit, chodzi po concourse i odwiedza Ship Dealera, bar, giełdę oraz komputer misji.
+- **Serwer:** Flask + SQLAlchemy (SQLite). Zwraca wyłącznie JSON, ma pełny CRUD (GET / POST / PUT / PATCH / DELETE), CORS i nagłówki bezpieczeństwa, a na produkcji działa tylko przez HTTPS.
+- **Klient:** aplikacja **React** (Vite), która pobiera dane z API i wysyła operacje CRUD. Jest hołdem dla interfejsu Privateera z 1993 roku. Gracz ląduje w bazie New Detroit, chodzi po concourse i odwiedza Ship Dealera, bar, giełdę oraz komputer misji.
+
+Laboratorium 1 (Flask + szablon HTML) jest w historii gita, w commitach przed wersją 2.0.
 
 Grafika nie korzysta z żadnych plików z gry. Wszystko jest generowane w kodzie:
 
@@ -46,20 +50,61 @@ Grafika nie korzysta z żadnych plików z gry. Wszystko jest generowane w kodzie
 
 ## `C:\GEMINI> SHIPYARD.EXE /INSTALL`
 
+Potrzebny jest Python 3.10+ i Node.js 20.19+.
+
+**1. Serwer API (terminal nr 1)**
+
 ```bash
 git clone https://github.com/DawidKlimczuk/Wing_commander.git
 cd Wing_commander
 python -m venv .venv
 .venv\Scripts\activate            # Linux/macOS: source .venv/bin/activate
 pip install -r requirements.txt
-python run.py                     # → http://127.0.0.1:5000
+python run.py                     # API → http://127.0.0.1:5000/api/
+```
+
+**2. Klient React (terminal nr 2)**
+
+```bash
+cd frontend
+npm install
+npm run dev                       # → http://localhost:5173
+```
+
+Vite przekazuje zapytania `/api/...` do Flaska (proxy), więc klient i serwer działają jak jedna strona.
+
+**Wersja „produkcyjna”** (jeden serwer, tak jak na Renderze):
+
+```bash
+cd frontend && npm run build && cd ..
+python run.py                     # Flask podaje zbudowanego Reacta z frontend/dist → http://127.0.0.1:5000
 ```
 
 ```bash
-pytest -q                         # 27 passed
+pytest -q                         # 42 passed
 ```
 
 Baza `instance/gemini.db` tworzy się i wypełnia danymi przy pierwszym starcie. Usunięcie pliku przywraca stan początkowy.
+
+## `C:\GEMINI> TYPE HTTPS.TXT`
+
+| Gdzie | Jak |
+|---|---|
+| Render (produkcja) | `FORCE_HTTPS=1`: każde żądanie po `http://` dostaje przekierowanie **308** na `https://` (308 zostawia metodę, więc POST dalej jest POST-em). `ProxyFix` odczytuje `X-Forwarded-Proto` od proxy Rendera |
+| Lokalnie, serwer | `python run.py --https`: certyfikat generowany w locie (`cryptography`); przeglądarka pokaże ostrzeżenie. Własny certyfikat, np. z `mkcert`: zmienne `SSL_CERT` i `SSL_KEY` |
+| Lokalnie, klient | `npm run dev:https`: Vite na `https://localhost:5173`. Jeśli Flask też działa po https, ustaw `API_TARGET=https://127.0.0.1:5000` |
+
+Nagłówki dodawane do każdej odpowiedzi:
+
+| Nagłówek | Po co |
+|---|---|
+| `Strict-Transport-Security` | tylko po https: przeglądarka przez rok sama wybiera https |
+| `Content-Security-Policy` | skrypty, style, czcionki i zapytania tylko z własnej domeny (czcionki są w paczce, bez Google Fonts) |
+| `X-Content-Type-Options: nosniff` | przeglądarka nie zgaduje typu pliku |
+| `X-Frame-Options: DENY` | strony nie da się osadzić w ramce (clickjacking) |
+| `Access-Control-Allow-Origin` | CORS tylko dla adresów z listy `CORS_ORIGINS` (domyślnie serwer Vite) |
+
+Na concourse lampki **LINK** i **HTTP/HTTPS** pokazują stan połączenia z API i protokół. W terminalu Merchants' Guild polecenie `status` wypisuje nagłówki bezpieczeństwa z prawdziwej odpowiedzi serwera.
 
 | Klawisz | Akcja |
 |:---:|---|
@@ -77,14 +122,14 @@ Baza `instance/gemini.db` tworzy się i wypełnia danymi przy pierwszym starcie.
 </tr>
 <tr>
 <td><img src="docs/screenshots/04_ship_dealer.png" alt="Ship Dealer"><br><sub><b>SHIP DEALER</b>: obracany model 3D, statystyki, konfiguracja slotów, zakup</sub></td>
-<td><img src="docs/screenshots/05_bar.png" alt="Bar"><br><sub><b>BAR</b>: rejestr klientów z generowanymi portretami</sub></td>
+<td><img src="docs/screenshots/05_bar.png" alt="Bar"><br><sub><b>BAR</b>: rejestr klientów z portretami, dodawanie, edycja (PUT) i usuwanie</sub></td>
 </tr>
 <tr>
-<td><img src="docs/screenshots/06_exchange.png" alt="Commodity Exchange"><br><sub><b>COMMODITY EXCHANGE</b>: oferta magazynowa, dostawy, złomowanie</sub></td>
+<td><img src="docs/screenshots/06_exchange.png" alt="Commodity Exchange"><br><sub><b>COMMODITY EXCHANGE</b>: magazyn, dostawy (POST), edycja (PUT), +1 szt. (PATCH), złom (DELETE)</sub></td>
 <td><img src="docs/screenshots/07_mission_computer.png" alt="Mission Computer"><br><sub><b>MISSION COMPUTER</b>: statystyki sprzedaży</sub></td>
 </tr>
 <tr>
-<td><img src="docs/screenshots/08_terminal_api.png" alt="Terminal API"><br><sub><b>MERCHANTS' GUILD</b>: terminal do żądań REST na żywo</sub></td>
+<td><img src="docs/screenshots/08_terminal_api.png" alt="Terminal API"><br><sub><b>MERCHANTS' GUILD</b>: terminal REST, nagłówki bezpieczeństwa i błąd walidacji</sub></td>
 <td><img src="docs/screenshots/09_launch.png" alt="Launch"><br><sub><b>LAUNCH</b>: start z lądowiska statkiem kupionym przez pilota</sub></td>
 </tr>
 </table>
@@ -103,21 +148,49 @@ Baza `instance/gemini.db` tworzy się i wypełnia danymi przy pierwszym starcie.
 | 5 | Oferta magazynowa i statystyki | `GET /api/inventory`, `GET /api/stats` |
 | 6 | Obsługa błędów | jeden format JSON, kody 400–500, walidacja wszystkich pól naraz |
 
+**Laboratorium 2:**
+
+| # | Wymaganie | Realizacja |
+|:-:|---|---|
+| 1 | Aplikacja w postaci REST, dane w JSON | Flask zwraca tylko JSON; doszły `PUT` / `PATCH`, `/api/meta`, CORS; HTML robi już klient |
+| 2 | Klient we frameworku konsumujący dane | React 19 + Vite ([frontend/](frontend/)); dane w kontekście `ShopContext`, zapytania w [api.js](frontend/src/api.js) |
+| 3 | Widoki do operacji CRUD | tabela niżej |
+| 4 | Obsługa błędów, HTTPS | błędy z serwera przy polach formularza i w okienkach, walidacja przed wysłaniem, timeout, brak sieci, `ErrorBoundary`; HTTPS opisany wyżej |
+
+| Operacja | Gdzie w kliencie |
+|---|---|
+| **Create** `POST` | Bar → *NOWY PILOT*; Exchange → *NOWA DOSTAWA* (kadłub, działo, rakiety); Ship Dealer → *KUP* (`/api/purchases`) |
+| **Read** `GET` | wszystkie widoki: oferta, akta pilota z flotą, magazyn, statystyki, rejestr transakcji |
+| **Update** `PUT` | Bar → *EDYTUJ* pilota; Exchange → *EDYTUJ* towar (cały obiekt) |
+| **Update** `PATCH` | Exchange → *+1* (zmienia tylko `stock`) |
+| **Delete** `DELETE` | Bar → *USUŃ* pilota; Exchange → *ZŁOM* |
+| dowolne | Merchants' Guild → terminal, w którym można wpisać każde żądanie ręcznie |
+
 ## `C:\GEMINI> TYPE API.TXT`
 
 | Metoda | Ścieżka | Opis |
 |---|---|---|
 | `GET` | `/api/` | spis endpointów |
 | `GET` `POST` | `/api/hulls` | kadłuby (`?in_stock=1`) |
-| `GET` `DELETE` | `/api/hulls/<id>` | |
+| `GET` `PUT` `PATCH` `DELETE` | `/api/hulls/<id>` | |
 | `GET` `POST` | `/api/weapons` | broń (`?kind=energy\|missile`) |
-| `GET` `DELETE` | `/api/weapons/<id>` | |
+| `GET` `PUT` `PATCH` `DELETE` | `/api/weapons/<id>` | |
 | `GET` `POST` | `/api/clients` | klienci (`?profession=pirate`) |
-| `GET` `DELETE` | `/api/clients/<id>` | klient z historią zakupów |
+| `GET` `PUT` `PATCH` `DELETE` | `/api/clients/<id>` | klient z historią zakupów |
 | `GET` `POST` | `/api/purchases` | transakcje / **zakup** (`?client_id=`) |
 | `GET` | `/api/purchases/<id>` | manifest transakcji |
 | `GET` | `/api/inventory` | stan magazynu (`?low_stock_threshold=`) |
 | `GET` | `/api/stats` | statystyki sprzedaży |
+| `GET` | `/api/meta` | słowniki dla klienta: pochodzenie, profesje, przyspieszenie |
+
+**PUT a PATCH:** `PUT` podmienia cały obiekt, więc wymaga wszystkich obowiązkowych pól (pominięte opcjonalne wracają do domyślnych). `PATCH` zmienia tylko przesłane pola:
+
+```json
+PATCH /api/hulls/3
+{"stock": 10, "price": 95000}
+```
+
+Przy edycji serwer sprawdza to samo co przy dodawaniu (unikalna nazwa z pominięciem edytowanego obiektu, dopalacz >= prędkość z uwzględnieniem starej wartości) i nie pozwala zmienić rodzaju broni zamontowanej już na sprzedanych statkach (`409`).
 
 **Zakup:**
 
@@ -165,39 +238,61 @@ Przed zapisem serwer sprawdza zgodność broni z typem slotu, limit slotów kad�
 
 W terminalu Merchants' Guild polecenie `demo` wysyła serię błędnych żądań i pokazuje odpowiedzi na żywo.
 
+**Po stronie klienta:**
+
+| Sytuacja | Co widzi użytkownik |
+|---|---|
+| `422` z listą pól | czerwona ramka i komunikat pod konkretnym polem formularza |
+| inne błędy API (`402`, `404`, `409`...) | okienko *TRANSMISJA ODRZUCONA* z komunikatem, szczegółami i kodem HTTP |
+| serwer nie odpowiada / brak sieci | okienko *BRAK ŁĄCZNOŚCI*, lampka **LINK DOWN** na concourse |
+| zapytanie trwa ponad 10 s | przerwane przez `AbortController`, komunikat o przekroczonym czasie |
+| odpowiedź nie jest JSON-em (np. strona błędu proxy) | `BAD_RESPONSE` zamiast wysypania się na `JSON.parse` |
+| puste wymagane pole, ujemna liczba | błąd przy polu jeszcze przed wysłaniem żądania |
+| wyjątek w komponencie React | `ErrorBoundary`: niebieski ekran awarii z przyciskami *SPRÓBUJ PONOWNIE* / *RESTART* zamiast białej strony |
+
 ## `C:\GEMINI> TREE`
 
 ```
-app/
-├── __init__.py        fabryka aplikacji
-├── models.py          ORM: Hull, Weapon, Client, Transaction, PurchasedShip, MountedWeapon
-├── errors.py          wyjątki API i globalne handlery błędów
-├── validation.py      walidacja wejścia (zbiera wszystkie błędy naraz)
-├── seed.py            dane startowe: oferta stoczni i piloci z Sektora Gemini
-├── api/
-│   ├── catalog.py     CRUD: kadłuby, broń, klienci
-│   ├── trade.py       operacja zakupu
-│   └── stats.py       magazyn i statystyki
-├── templates/index.html
-└── static/
-    ├── css/privateer.css
-    └── js/
-        ├── pixel.js       dithering, wielokąty, czcionka 3×5
-        ├── ships3d.js     modele statków i rasteryzator
-        ├── concourse.js   baza New Detroit z hotspotami
-        ├── scenes.js      boot, intro, start z lądowiska
-        ├── portraits.js   portrety pilotów
-        ├── audio.js       synteza dźwięku
-        └── main.js        sceny, sklep, bar, magazyn, komputer, terminal
-tests/test_api.py      27 testów API
+app/                       SERWER REST (Flask)
+├── __init__.py            fabryka aplikacji, CORS, HTTPS, nagłówki, podawanie frontend/dist
+├── models.py              ORM: Hull, Weapon, Client, Transaction, PurchasedShip, MountedWeapon
+├── errors.py              wyjątki API i globalne handlery błędów
+├── validation.py          walidacja wejścia (wszystkie błędy naraz, tryb częściowy dla PATCH)
+├── seed.py                dane startowe: oferta stoczni i piloci z Sektora Gemini
+└── api/
+    ├── __init__.py        spis endpointów, /api/meta
+    ├── catalog.py         CRUD: kadłuby, broń, klienci (GET/POST/PUT/PATCH/DELETE)
+    ├── trade.py           operacja zakupu
+    └── stats.py           magazyn i statystyki
+frontend/                  KLIENT (React + Vite)
+├── vite.config.js         proxy /api → Flask, tryb https
+└── src/
+    ├── main.jsx           start aplikacji, czcionki, style
+    ├── App.jsx            ekran 1280×800, przejścia między scenami, klawiatura
+    ├── api.js             fetch, ApiError, timeout, obsługa braku sieci
+    ├── context/
+    │   ├── ShopContext.jsx    dane z serwera i aktualny klient
+    │   └── DialogContext.jsx  okienka i wyświetlanie błędów API
+    ├── components/        Room, FormFields, Portrait, Meter, AnimatedNumber, ErrorBoundary
+    ├── scenes/            Boot, Intro, Concourse, Dealer, Bar, Exchange, Computer, Launch
+    ├── engine/            grafika i dźwięk (bez Reacta)
+    │   ├── pixel.js       dithering, wielokąty, czcionka 3×5
+    │   ├── ships3d.js     modele statków i rasteryzator
+    │   ├── concourse.js   baza New Detroit z hotspotami
+    │   ├── scenes.js      boot, intro, start z lądowiska
+    │   ├── rooms.js       tła pomieszczeń
+    │   ├── portraits.js   portrety pilotów
+    │   └── audio.js       synteza dźwięku
+    └── styles/privateer.css
+tests/test_api.py          42 testy API
 ```
 
 ## `C:\GEMINI> TYPE CREDITS.TXT`
 
 ```
-GEMINI SHIPYARD v1.0
+GEMINI SHIPYARD v2.0
 Autor .............. Dawid Klimczuk
-Przedmiot .......... Programowanie Wysokopoziomowe · Laboratorium 1
+Przedmiot .......... Programowanie Wysokopoziomowe · Laboratorium 2
 ```
 
 Dane statków: [wcnews.com](https://www.wcnews.com/ships/p1centurion.shtml). Statystyki dział: [apocalyptech.com/games/privgun](https://apocalyptech.com/games/privgun/).

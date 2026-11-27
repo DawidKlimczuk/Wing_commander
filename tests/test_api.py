@@ -263,3 +263,112 @@ def test_stats(client):
     assert s["transactions"] == 3
     assert s["top_client"]["name"] == "Tayla"
     assert sum(s["clients_by_profession"].values()) == 6
+
+
+# ==============
+# testy edycji (PUT i PATCH) - laboratorium 2
+# ==============
+def test_patch_hull_changes_only_sent_fields(client):
+    h = hull_id(client, "Orion")
+    r = client.patch(f"/api/hulls/{h}", json={"stock": 9, "price": 99000})
+    assert r.status_code == 200
+    assert r.json["stock"] == 9 and r.json["price"] == 99000
+    assert r.json["armor"]["front"] == 48  # reszta bez zmian
+
+
+def test_put_hull_requires_all_fields(client):
+    h = hull_id(client, "Orion")
+    r = client.put(f"/api/hulls/{h}", json={"stock": 1})
+    assert r.status_code == 422
+    assert "name" in r.json["error"]["details"]["fields"]
+
+
+def test_put_hull_replaces_whole_object(client):
+    h = hull_id(client, "Tarsus")
+    payload = {"name": "Tarsus Mk2", "armor_front": 12, "armor_rear": 12, "armor_side": 10,
+               "cargo": 110, "max_velocity": 310, "afterburner_velocity": 620,
+               "gun_slots": 2, "missile_slots": 1, "price": 25000, "stock": 3}
+    r = client.put(f"/api/hulls/{h}", json=payload)
+    assert r.status_code == 200 and r.json["name"] == "Tarsus Mk2"
+    assert r.json["description"] == ""  # pole którego nie wysłałem wraca do domyślnego
+
+
+def test_patch_hull_velocity_checked_against_old_value(client):
+    h = hull_id(client, "Tarsus")  # dopalacz 600
+    r = client.patch(f"/api/hulls/{h}", json={"max_velocity": 700})
+    assert r.status_code == 422
+
+
+def test_patch_name_conflict_and_same_name_ok(client):
+    h = hull_id(client, "Tarsus")
+    assert client.patch(f"/api/hulls/{h}", json={"name": "Orion"}).status_code == 409
+    assert client.patch(f"/api/hulls/{h}", json={"name": "Tarsus"}).status_code == 200
+
+
+def test_patch_empty_body_is_error(client):
+    h = hull_id(client, "Tarsus")
+    assert client.patch(f"/api/hulls/{h}", json={}).status_code == 422
+
+
+def test_patch_missing_object_is_404(client):
+    assert client.patch("/api/clients/999", json={"credits": 1}).status_code == 404
+
+
+def test_patch_client(client):
+    c = client_id(client, "Jones")
+    r = client.patch(f"/api/clients/{c}", json={"credits": 123, "profession": "trader"})
+    assert r.status_code == 200 and r.json["credits"] == 123 and r.json["profession"] == "trader"
+    assert client.patch(f"/api/clients/{c}", json={"profession": "jedi"}).status_code == 422
+
+
+def test_patch_weapon_missile_needs_ammo(client):
+    w = client.post("/api/weapons", json={"name": "Ion", "kind": "energy", "damage": 3,
+                                          "price": 100}).json["id"]
+    assert client.patch(f"/api/weapons/{w}", json={"kind": "missile"}).status_code == 422
+    r = client.patch(f"/api/weapons/{w}", json={"damage": 5})
+    assert r.status_code == 200 and r.json["damage"] == 5 and r.json["ammo"] is None
+
+
+def test_cannot_change_kind_of_mounted_weapon(client):
+    w = weapon_id(client, "Laser")  # laser jest już na sprzedanych statkach
+    r = client.patch(f"/api/weapons/{w}", json={"kind": "missile", "ammo": 2})
+    assert r.status_code == 409
+
+
+# ==============
+# testy CORS, nagłówków bezpieczeństwa i https
+# ==============
+def test_cors_for_vite_dev_server(client):
+    r = client.get("/api/hulls", headers={"Origin": "http://localhost:5173"})
+    assert r.headers["Access-Control-Allow-Origin"] == "http://localhost:5173"
+    r = client.get("/api/hulls", headers={"Origin": "http://evil.example"})
+    assert "Access-Control-Allow-Origin" not in r.headers
+
+
+def test_cors_preflight_allows_patch(client):
+    r = client.options("/api/hulls/1", headers={"Origin": "http://localhost:5173",
+                                                "Access-Control-Request-Method": "PATCH"})
+    assert r.status_code == 200
+    assert "PATCH" in r.headers["Access-Control-Allow-Methods"]
+
+
+def test_security_headers(client):
+    r = client.get("/api/")
+    assert r.headers["X-Content-Type-Options"] == "nosniff"
+    assert "Strict-Transport-Security" not in r.headers
+    r = client.get("/api/", base_url="https://localhost")
+    assert "max-age" in r.headers["Strict-Transport-Security"]
+
+
+def test_force_https_redirect():
+    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+                      "FORCE_HTTPS": True})
+    c = app.test_client()
+    r = c.get("/api/hulls")
+    assert r.status_code == 308 and r.headers["Location"].startswith("https://")
+    assert c.get("/api/hulls", headers={"X-Forwarded-Proto": "https"}).status_code == 200
+
+
+def test_meta(client):
+    r = client.get("/api/meta")
+    assert "pirate" in r.json["professions"] and r.json["origins"]
