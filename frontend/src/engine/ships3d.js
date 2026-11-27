@@ -238,13 +238,35 @@ export class Rasterizer {
     this.w = width; this.h = height;
     this.image = new ImageData(width, height);
     this.buf = new Uint32Array(this.image.data.buffer);
+    // bufor głębokości (z-buffer) - dla każdego piksela trzymam 1/z najbliższej ściany
+    // dzięki temu małe części (np. silniki Oriona) nie przeskakują przed/za kadłub przy obrocie
+    this.zbuf = new Float32Array(width * height);
   }
 
   clear(color = 0) { this.buf.fill(color); }
 
-  // rysuje jedną ścianę w odpowiednim odcieniu
-  fill(pts, ramp, light) {
-    const { w, h, buf } = this;
+  // ==============
+  // funkcja liczy płaszczyznę 1/z = a*x + b*y + c na ekranie (1/z zmienia się liniowo po pikselach)
+  // ==============
+  depthPlane(pts, iz) {
+    let best = null, bestDet = 0;
+    for (let i = 1; i + 1 < pts.length; i++) {
+      const d1x = pts[i][0] - pts[0][0], d1y = pts[i][1] - pts[0][1];
+      const d2x = pts[i + 1][0] - pts[0][0], d2y = pts[i + 1][1] - pts[0][1];
+      const det = d1x * d2y - d2x * d1y;
+      if (Math.abs(det) > Math.abs(bestDet)) { bestDet = det; best = [i, d1x, d1y, d2x, d2y]; }
+    }
+    if (!best || Math.abs(bestDet) < 1e-6) return null;
+    const [i, d1x, d1y, d2x, d2y] = best;
+    const dz1 = iz[i] - iz[0], dz2 = iz[i + 1] - iz[0];
+    const a = (dz1 * d2y - dz2 * d1y) / bestDet;
+    const b = (d1x * dz2 - d2x * dz1) / bestDet;
+    return [a, b, iz[0] - a * pts[0][0] - b * pts[0][1]];
+  }
+
+  // rysuje jedną ścianę w odpowiednim odcieniu (plane = płaszczyzna głębokości)
+  fill(pts, ramp, light, plane) {
+    const { w, h, buf, zbuf } = this;
     const steps = ramp.length - 1;
     const lv = Math.max(0, Math.min(steps, light * steps));
     const lo = Math.floor(lv), frac = lv - lo;
@@ -266,11 +288,19 @@ export class Rasterizer {
       if (xa === Infinity) continue;
       const from = Math.max(0, Math.round(xa)), to = Math.min(w, Math.round(xb));
       const row = BAYER4[y & 3], off = y * w;
-      for (let x = from; x < to; x++) buf[off + x] = row[x & 3] < frac ? cHi : cLo;
+      for (let x = from; x < to; x++) {
+        // rysuję piksel tylko jak ściana jest bliżej niż to co już tam jest
+        if (plane) {
+          const iz = plane[0] * (x + 0.5) + plane[1] * sy + plane[2];
+          if (iz <= zbuf[off + x]) continue;
+          zbuf[off + x] = iz;
+        }
+        buf[off + x] = row[x & 3] < frac ? cHi : cLo;
+      }
     }
   }
 
-  glow(x, y, size, color) {
+  glow(x, y, size, color, iz = 0) {
     const [r, g, b] = rgb(color);
     const core = (255 << 24) | (Math.min(255, b + 120) << 16) | (Math.min(255, g + 120) << 8) | Math.min(255, r + 120);
     const mid = (255 << 24) | (b << 16) | (g << 8) | r;
@@ -278,6 +308,8 @@ export class Rasterizer {
       for (let i = -size; i <= size; i++) {
         const d = Math.hypot(i, j) / size, X = Math.round(x + i), Y = Math.round(y + j);
         if (X < 0 || Y < 0 || X >= this.w || Y >= this.h || d > 1) continue;
+        // płomień zasłonięty przez kadłub nie jest rysowany
+        if (iz && iz < this.zbuf[Y * this.w + X]) continue;
         if (d < 0.35) this.buf[Y * this.w + X] = core;
         else if (d < 0.7 || BAYER4[Y & 3][X & 3] > d) this.buf[Y * this.w + X] = mid;
       }
@@ -308,17 +340,18 @@ export class Rasterizer {
       if (dot(n, c) >= 0) continue; // ściana tylna
       const lambert = Math.max(0, dot(n, L));
       const spec = Math.pow(Math.max(0, dot(n, [0, 0, -1])), 12) * 0.25;
-      items.push({ depth: Math.max(...v.map(p => p[2])) * 0.3 + c[2] * 0.7, pts: v.map(proj), ramp: RAMP_RGB[face.mat], light: ambient + (1 - ambient) * lambert + spec });
+      const pts = v.map(proj);
+      items.push({ depth: c[2], pts, plane: this.depthPlane(pts, v.map(p => 1 / p[2])), ramp: RAMP_RGB[face.mat], light: ambient + (1 - ambient) * lambert + spec });
     }
     for (const g of mesh.glows) {
       const p = xf(g.p);
-      items.push({ depth: p[2] - 0.4, glow: g, at: proj(p), size: Math.max(1, Math.round(g.size * scale / 6 * flame)) });
+      items.push({ depth: p[2] - 0.4, glow: g, at: proj(p), iz: 1 / (p[2] - 0.4), size: Math.max(1, Math.round(g.size * scale / 6 * flame)) });
     }
+    // najpierw czyszczę bufor głębokości, potem rysuję ściany, a płomienie na końcu
+    this.zbuf.fill(0);
     items.sort((a, b) => b.depth - a.depth);
-    for (const it of items) {
-      if (it.glow) this.glow(it.at[0], it.at[1], it.size, it.glow.color);
-      else this.fill(it.pts, it.ramp, it.light);
-    }
+    for (const it of items) if (!it.glow) this.fill(it.pts, it.ramp, it.light, it.plane);
+    for (const it of items) if (it.glow) this.glow(it.at[0], it.at[1], it.size, it.glow.color, it.iz);
   }
 
   blit(ctx, x = 0, y = 0) { ctx.putImageData(this.image, x, y); }
